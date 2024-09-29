@@ -51,17 +51,40 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                     json.dumps(response, ensure_ascii=False).encode("utf-8")
                 )
 
-        """ 
-            Method: POST
-            Path: /login
-            Body: {"id": "", "password": ""}
-            Result: {"success": true, "id": "", "sessionId": ""}
-            Cookie: session=...
-        """
-
         if self.path == "/login":
-            pass
+            content_length = int(self.headers["Content-Length"])
+            body = self.rfile.read(content_length)
+            payload = json.loads(body)
 
+            id = payload["id"]
+            password = payload["password"]
+
+            if os.path.exists("users.json"):
+                with open("users.json", "r") as file:
+                    users = json.load(file)
+            else:
+                users = {}
+
+            if id not in users or users[id] != password:
+                self.send_response(400)
+                self.end_headers()
+                response = {"success": False, "message": "ID or password is incorrect"}
+                self.wfile.write(
+                    json.dumps(response, ensure_ascii=False).encode("utf-8")
+                )
+            else:
+                session_id = "session"
+
+                cookie = SimpleCookie()
+                cookie["session"] = session_id
+                self.send_header("Set-Cookie", cookie.output(header=""))
+
+                self.send_response(200)
+                self.end_headers()
+                response = {"success": True, "id": id, "sessionId": session_id}
+                self.wfile.write(
+                    json.dumps(response, ensure_ascii=False).encode("utf-8")
+                )
 
 server_address = ("0.0.0.0", 8080)
 httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
